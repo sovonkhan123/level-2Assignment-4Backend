@@ -5,7 +5,11 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const port = 3000;
 
 // parser
-app.use(cors());
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true
+}));
 app.use(express.json());
 
 // connect with mongodb
@@ -31,24 +35,36 @@ async function run() {
       .db("assignment-4")
       .collection("cartCollection");
 
-    // fetch all products
-    // app.get("/api/products", async (req, res) => {
-    //   const data = await userCollection.find().toArray();
-    //   res.send(data);
-    // });
-
-    // to search a product
+    // for search filtering and fetch products
     app.get("/api/products", async (req, res) => {
-      const searchTerm = req.query.search;
-      let query = {};
-      if (searchTerm) {
-        query = {
-          name: { $regex: searchTerm, $options: "i" },
-        };
-      }
-      const products = await userCollection.find(query).toArray();
-      res.send(products);
-    });
+        const { search, category, minPrice, maxPrice, sort } = req.query;
+        let query = {};
+      
+        if (search) {
+          query.name = { $regex: search, $options: "i" };
+        }
+        if (category) {
+          query.category = category;
+        }
+        if (minPrice || maxPrice) {
+          query.price = {};
+          if (minPrice) {
+            query.price.$gte = parseFloat(minPrice);
+          }
+          if (maxPrice) {
+            query.price.$lte = parseFloat(maxPrice);
+          }
+        }
+      
+        let products = await userCollection.find(query).toArray();
+      
+        if (sort) {
+          const sortOrder = sort === "asc" ? 1 : -1;
+          products = products.sort((a, b) => (a.price - b.price) * sortOrder);
+        }
+      
+        res.send(products);
+      });      
 
     // fetch single product
     app.get("/api/products/:id", async (req, res) => {
